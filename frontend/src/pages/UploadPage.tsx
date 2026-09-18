@@ -11,9 +11,14 @@ export function UploadPage() {
 
   function choose(candidate?: File) {
     if (!candidate) return;
-    if (candidate.type !== "application/pdf" || !candidate.name.toLowerCase().endsWith(".pdf")) return setError("Choose a PDF file.");
-    if (candidate.size > 10 * 1024 * 1024) return setError("PDF must be 10 MB or smaller.");
-    setError(""); setFile(candidate);
+    const supportedType = !candidate.type || ["application/pdf", "application/x-pdf"].includes(candidate.type);
+    if (!supportedType || !candidate.name.toLowerCase().endsWith(".pdf")) {
+      setFile(null); setProgress(0); setError("Choose a PDF file."); return;
+    }
+    if (candidate.size > 10 * 1024 * 1024) {
+      setFile(null); setProgress(0); setError("PDF must be 10 MB or smaller."); return;
+    }
+    setError(""); setProgress(0); setFile(candidate);
   }
   function onDrop(event: DragEvent) { event.preventDefault(); choose(event.dataTransfer.files[0]); }
   function onInput(event: ChangeEvent<HTMLInputElement>) { choose(event.target.files?.[0]); }
@@ -24,7 +29,7 @@ export function UploadPage() {
       const document = await api.uploadDocument(file, setProgress);
       await api.extract(document.id);
       navigate(`/documents/${document.id}/review`);
-    } catch (err) { setError(err instanceof Error ? err.message : "Upload failed"); }
+    } catch (err) { setProgress(0); setError(err instanceof Error ? err.message : "Upload failed"); }
     finally { setBusy(false); }
   }
 

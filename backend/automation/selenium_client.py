@@ -2,6 +2,7 @@ import os
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 
 
 def create_chrome_driver() -> webdriver.Chrome:
@@ -12,4 +13,6 @@ def create_chrome_driver() -> webdriver.Chrome:
     options.add_argument("--window-size=1440,900")
     if binary := os.getenv("CHROME_BINARY"):
         options.binary_location = binary
-    return webdriver.Chrome(options=options)
+    driver_path = os.getenv("CHROMEDRIVER_PATH")
+    service = Service(executable_path=driver_path) if driver_path else Service()
+    return webdriver.Chrome(service=service, options=options)

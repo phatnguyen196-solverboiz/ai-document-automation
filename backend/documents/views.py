@@ -6,6 +6,7 @@ from .models import Document, ProcessingJob
 from .serializers import DocumentSerializer, DocumentUploadSerializer, ExtractionSerializer, ProcessingJobSerializer
 from .services.automation_service import AutomationService
 from .services.document_service import DocumentWorkflowService
+from .services.exceptions import InvalidWorkflowState
 from .services.validation_service import validate_extraction
 
 
@@ -17,7 +18,10 @@ class DocumentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Ret
 
     @action(detail=True, methods=["post"])
     def extract(self, request, pk=None):
-        job = DocumentWorkflowService().extract(self.get_object())
+        try:
+            job = DocumentWorkflowService().extract(self.get_object())
+        except InvalidWorkflowState as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         code = status.HTTP_200_OK if job.status == ProcessingJob.Status.SUCCESS else status.HTTP_422_UNPROCESSABLE_ENTITY
         return Response(ProcessingJobSerializer(job).data, status=code)
 
@@ -29,6 +33,12 @@ class DocumentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Ret
         extraction = document.extraction
         if request.method == "GET":
             return Response(ExtractionSerializer(extraction).data)
+
+        if document.status not in {Document.Status.REVIEW_REQUIRED, Document.Status.FAILED}:
+            return Response(
+                {"detail": "Approved or automated data can no longer be edited."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
         serializer = ExtractionSerializer(extraction, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -53,6 +63,11 @@ class DocumentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Ret
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         document = self.get_object()
+        if document.status != Document.Status.REVIEW_REQUIRED:
+            return Response(
+                {"detail": "Only documents awaiting review can be approved."},
+                status=status.HTTP_409_CONFLICT,
+            )
         if not hasattr(document, "extraction"):
             return Response({"detail": "Run extraction before approval."}, status=status.HTTP_409_CONFLICT)
         extraction = document.extraction
@@ -75,9 +90,10 @@ class DocumentViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Ret
     @action(detail=True, methods=["post"])
     def automate(self, request, pk=None):
         document = self.get_object()
-        if document.status != Document.Status.APPROVED:
-            return Response({"detail": "Human approval is required before automation."}, status=status.HTTP_409_CONFLICT)
-        job = AutomationService().automate(document)
+        try:
+            job = AutomationService().automate(document)
+        except InvalidWorkflowState as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
         code = status.HTTP_200_OK if job.status == ProcessingJob.Status.SUCCESS else status.HTTP_502_BAD_GATEWAY
         return Response(ProcessingJobSerializer(job).data, status=code)
 

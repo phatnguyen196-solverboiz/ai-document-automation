@@ -12,7 +12,10 @@ export function Layout() {
         <div className="sidebar-note"><span>MOCK LLM</span><p>Safe, deterministic demo mode is enabled by default.</p></div>
       </aside>
       <main className="main-column">
-        <header className="mobile-header"><Link className="brand" to="/"><span className="brand-icon">FM</span><strong>FreightMind</strong></Link></header>
+        <header className="mobile-header">
+          <Link className="brand" to="/"><span className="brand-icon">FM</span><strong>FreightMind</strong></Link>
+          <nav><NavLink to="/" end>Documents</NavLink><NavLink to="/upload">Upload</NavLink></nav>
+        </header>
         <div className="content"><Outlet /></div>
       </main>
     </div>

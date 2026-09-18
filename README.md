@@ -82,6 +82,7 @@ Serve `mock-portal/` on port 8082 for a local Selenium run. OCR is intentionally
 | `LLM_MODEL` | Model identifier | `gpt-4.1-mini` |
 | `MOCK_PORTAL_URL` | Demo ERP URL for Selenium | `http://localhost:8082` |
 | `CHROME_BINARY` | Optional Chromium path | Selenium discovery |
+| `CHROMEDRIVER_PATH` | Optional local ChromeDriver executable | Selenium discovery |
 | `VITE_API_URL` | Browser-facing API URL | `http://localhost:8000/api` |
 
 Never commit API keys, database passwords, or production Django secrets. `.env` is excluded from Git.

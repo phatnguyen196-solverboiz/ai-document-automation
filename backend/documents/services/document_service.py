@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from documents.models import Document, ExtractedShipmentData, ProcessingJob
 
+from .exceptions import InvalidWorkflowState
 from .llm_service import LLMService
 from .pdf_service import extract_pdf_text
 from .validation_service import sanitize_for_storage, validate_extraction
@@ -17,12 +18,18 @@ class DocumentWorkflowService:
         self.llm_service = llm_service or LLMService()
 
     def extract(self, document: Document) -> ProcessingJob:
-        job = ProcessingJob.objects.create(document=document, job_type=ProcessingJob.JobType.EXTRACTION)
-        job.status = ProcessingJob.Status.RUNNING
-        job.started_at = timezone.now()
-        job.save(update_fields=["status", "started_at"])
-        document.status = Document.Status.PROCESSING
-        document.save(update_fields=["status", "updated_at"])
+        with transaction.atomic():
+            document = Document.objects.select_for_update().get(pk=document.pk)
+            if document.status not in {Document.Status.UPLOADED, Document.Status.FAILED}:
+                raise InvalidWorkflowState("Extraction cannot run in the document's current state.")
+            document.status = Document.Status.PROCESSING
+            document.save(update_fields=["status", "updated_at"])
+            job = ProcessingJob.objects.create(
+                document=document,
+                job_type=ProcessingJob.JobType.EXTRACTION,
+                status=ProcessingJob.Status.RUNNING,
+                started_at=timezone.now(),
+            )
 
         try:
             raw_text = extract_pdf_text(document.file)

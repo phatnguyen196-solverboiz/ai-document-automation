@@ -13,7 +13,8 @@ class DocumentUploadSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "original_filename", "status", "created_at"]
 
     def validate_file(self, value):
-        if Path(value.name).suffix.lower() != ".pdf" or value.content_type not in {"application/pdf", "application/x-pdf"}:
+        allowed_content_types = {"", "application/pdf", "application/x-pdf", "application/octet-stream"}
+        if Path(value.name).suffix.lower() != ".pdf" or (value.content_type or "") not in allowed_content_types:
             raise serializers.ValidationError("Only PDF files are accepted.")
         if value.size > settings.MAX_PDF_SIZE_BYTES:
             raise serializers.ValidationError("PDF must be 10 MB or smaller.")

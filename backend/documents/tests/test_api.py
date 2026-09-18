@@ -48,6 +48,14 @@ def test_fake_pdf_rejection(api_client) -> None:
 
 
 @pytest.mark.django_db
+def test_pdf_upload_accepts_generic_binary_content_type(api_client, valid_pdf, settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    valid_pdf.content_type = "application/octet-stream"
+    response = api_client.post(reverse("document-list"), {"file": valid_pdf}, format="multipart")
+    assert response.status_code == 201
+
+
+@pytest.mark.django_db
 def test_extract_endpoint_uses_mock_llm(api_client, valid_pdf, settings, tmp_path) -> None:
     settings.MEDIA_ROOT = tmp_path
     upload = api_client.post(reverse("document-list"), {"file": valid_pdf}, format="multipart")
@@ -138,7 +146,69 @@ def test_failed_automation(api_client, valid_pdf, settings, tmp_path, monkeypatc
     document.refresh_from_db()
     assert response.status_code == 502
     assert response.data["status"] == ProcessingJob.Status.FAILED
-    assert document.status == Document.Status.FAILED
+    assert document.status == Document.Status.APPROVED
+
+
+@pytest.mark.django_db
+def test_failed_automation_can_be_retried(api_client, valid_pdf, settings, tmp_path, monkeypatch) -> None:
+    class FlakyPortal:
+        calls = 0
+
+        def create_order(self, extraction) -> str:
+            type(self).calls += 1
+            if type(self).calls == 1:
+                raise PortalUnavailableError("portal offline")
+            return "SO-RETRY-0001"
+
+    settings.MEDIA_ROOT = tmp_path
+    document = Document.objects.create(original_filename="shipment.pdf", file=valid_pdf, status=Document.Status.APPROVED)
+    extraction_defaults(document)
+    monkeypatch.setattr("documents.views.AutomationService", lambda: AutomationService(portal_client=FlakyPortal()))
+
+    first = api_client.post(reverse("document-automate", args=[document.pk]))
+    second = api_client.post(reverse("document-automate", args=[document.pk]))
+    document.refresh_from_db()
+
+    assert first.status_code == 502
+    assert second.status_code == 200
+    assert document.status == Document.Status.AUTOMATED
+    assert document.erp_reference == "SO-RETRY-0001"
+
+
+@pytest.mark.django_db
+def test_approved_extraction_cannot_be_edited(api_client, valid_pdf, settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    document = Document.objects.create(original_filename="shipment.pdf", file=valid_pdf, status=Document.Status.APPROVED)
+    extraction_defaults(document)
+    response = api_client.patch(
+        reverse("document-extraction", args=[document.pk]),
+        {"destination": "Tokyo"},
+        format="json",
+    )
+    assert response.status_code == 409
+    document.extraction.refresh_from_db()
+    assert document.extraction.destination == "Singapore"
+
+
+@pytest.mark.django_db
+def test_automated_document_cannot_be_approved_again(api_client, valid_pdf, settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    document = Document.objects.create(original_filename="shipment.pdf", file=valid_pdf, status=Document.Status.AUTOMATED)
+    extraction_defaults(document)
+    response = api_client.post(reverse("document-approve", args=[document.pk]))
+    assert response.status_code == 409
+    document.refresh_from_db()
+    assert document.status == Document.Status.AUTOMATED
+
+
+@pytest.mark.django_db
+def test_extraction_cannot_rerun_after_approval(api_client, valid_pdf, settings, tmp_path) -> None:
+    settings.MEDIA_ROOT = tmp_path
+    document = Document.objects.create(original_filename="shipment.pdf", file=valid_pdf, status=Document.Status.APPROVED)
+    extraction_defaults(document)
+    response = api_client.post(reverse("document-extract", args=[document.pk]))
+    assert response.status_code == 409
+    assert not ProcessingJob.objects.filter(document=document, job_type=ProcessingJob.JobType.EXTRACTION).exists()
 
 
 @pytest.mark.django_db
