@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo ERP Portal</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#eef3f1;font:15px system-ui;color:#173333}.shell{max-width:760px;margin:40px auto;background:white;border:1px solid #dce6e1;border-radius:18px;overflow:hidden;box-shadow:0 22px 65px #17333317}.header{background:#102a2a;color:white;padding:27px 32px}.logo{font-size:11px;font-weight:900;letter-spacing:.16em;color:#62cfbc}.header h1{margin:8px 0 0;font-size:29px}.form{padding:30px 32px;display:grid;gap:16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px}label{display:grid;gap:7px;font-size:12px;font-weight:800;color:#526864}input{border:1px solid #c9d7d1;border-radius:9px;padding:11px;outline:none}input:focus{border-color:#35a491;box-shadow:0 0 0 3px #dbf1ed}button{border:0;border-radius:9px;padding:13px;background:#17766d;color:white;font-weight:850;cursor:pointer}.confirmation{display:none;margin:0 32px 30px;padding:22px;border-radius:12px;background:#e1f6e9;color:#155c3e}.confirmation.visible{display:block}.confirmation strong{display:block;font-size:18px}.confirmation span{display:block;margin-top:6px;font-size:22px;letter-spacing:.06em;font-weight:900}@media(max-width:650px){.shell{margin:0;border-radius:0}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body><main class="shell"><header class="header"><div class="logo">NORTHSTAR ERP • DEMO</div><h1>Create shipping order</h1></header><form id="orderForm" class="form">
+  <label>Customer<input id="customer" required /></label>
+  <label>Container Number<input id="containerNumber" required pattern="[A-Z]{4}[0-9]{7}" /></label>
+  <div class="grid"><label>Origin<input id="origin" required /></label><label>Destination<input id="destination" required /></label></div>
+  <div class="grid"><label>Weight (kg)<input id="weightKg" type="number" min="0.01" step="0.01" required /></label><label>Delivery Date<input id="deliveryDate" type="date" required /></label></div>
+  <button id="submitButton" type="submit">Create Order</button>
+  </form><section id="confirmation" class="confirmation" data-success="false" aria-live="polite"><strong>Order successfully created.</strong><span id="erpReference"></span></section></main>
+  <script>document.querySelector('#orderForm').addEventListener('submit',(event)=>{event.preventDefault();const form=event.currentTarget;const confirmation=document.querySelector('#confirmation');if(!form.checkValidity()){confirmation.dataset.success='false';return;}document.querySelector('#erpReference').textContent='SO-2026-00042';confirmation.dataset.success='true';confirmation.classList.add('visible');});</script>
+</body></html>

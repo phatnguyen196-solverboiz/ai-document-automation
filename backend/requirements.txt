@@ -1,0 +1,12 @@
+Django==5.2.6
+djangorestframework==3.16.1
+django-cors-headers==4.8.0
+dj-database-url==3.0.1
+psycopg[binary]==3.2.10
+PyMuPDF==1.26.4
+pydantic==2.11.9
+requests==2.32.5
+selenium==4.35.0
+gunicorn==23.0.0
+pytest==8.4.2
+pytest-django==4.11.1
